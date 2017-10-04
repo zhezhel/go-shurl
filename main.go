@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"math"
 	"math/rand"
 	"net/http"
 	"time"
@@ -19,19 +20,24 @@ func reverse(value string) string {
 	return string(result)
 }
 
-func shuffle(s string) []string {
-	tmp := make([]string, len(s))
+func shuffle(s string) (map[int]string, map[string]int) {
+	tmpIntString := make(map[int]string, len(s))
+	tmpStringInt := make(map[string]int, len(s))
 	for i := range s {
-		tmp[i] = string(s[i])
+		tmpIntString[i] = string(s[i])
 	}
-	for i := range tmp {
+	for i := range tmpIntString {
 		j := rand.Intn(i + 1)
-		tmp[i], tmp[j] = tmp[j], tmp[i]
+		tmpIntString[i], tmpIntString[j] = tmpIntString[j], tmpIntString[i]
 	}
-	return tmp
+	for k, v := range tmpIntString {
+		tmpStringInt[v] = k
+	}
+
+	return tmpIntString, tmpStringInt
 }
 
-func decToBase62(symbol []string, n int) string {
+func decToBase62(symbol map[int]string, n int) string {
 	var url string
 	for int(n/62) > 0 {
 		url += symbol[n%62]
@@ -41,20 +47,36 @@ func decToBase62(symbol []string, n int) string {
 	return reverse(url)
 }
 
+func base62ToDec(symbol map[string]int, url string) int {
+	var num float64
+	url = reverse(url)
+	for k, v := range url {
+		num += float64((symbol[string(v)])) * math.Pow(62, float64(k))
+	}
+	return int(num)
+}
+
+func getUrlFromDb(shortUrl string) string {
+	fmt.Println(shortUrl)
+	return "https://google.com"
+}
+
+func createUrlInDb(longUrl string) string {
+	return "s"
+}
+
 func redirect(w http.ResponseWriter, r *http.Request) {
-	http.Redirect(w, r, "https://google.com", http.StatusMovedPermanently)
-	fmt.Println(mux.Vars(r)["id"])
+	http.Redirect(w, r, mux.Vars(r)["id"], http.StatusMovedPermanently)
 }
 func create(w http.ResponseWriter, r *http.Request) {
-
 	fmt.Println("create")
 }
-func info(w http.ResponseWriter, r *http.Request) {
 
+func info(w http.ResponseWriter, r *http.Request) {
 	fmt.Println("info")
 }
-func view(w http.ResponseWriter, r *http.Request) {
 
+func view(w http.ResponseWriter, r *http.Request) {
 	fmt.Println("view")
 }
 
@@ -67,10 +89,13 @@ func main() {
 
 	urlSymbols := "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 	rand.Seed(time.Now().UnixNano())
-	t := shuffle(urlSymbols)
-	fmt.Println(decToBase62(t, 0))
+	i, s := shuffle(urlSymbols)
 
-	fmt.Println(t)
+	n := 19
+
+	fmt.Println(decToBase62(i, n))
+	tmp := decToBase62(i, n)
+	fmt.Println(base62ToDec(s, tmp))
 
 	http.Handle("/", r)
 	http.ListenAndServe(":"+"8000", nil)
