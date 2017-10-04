@@ -2,7 +2,9 @@ package main
 
 import (
 	"fmt"
+	"math/rand"
 	"net/http"
+	"time"
 
 	"github.com/gorilla/mux"
 )
@@ -17,13 +19,25 @@ func reverse(value string) string {
 	return string(result)
 }
 
-func dec_to_base62(symbol string, n int) string {
+func shuffle(s string) []string {
+	tmp := make([]string, len(s))
+	for i := range s {
+		tmp[i] = string(s[i])
+	}
+	for i := range tmp {
+		j := rand.Intn(i + 1)
+		tmp[i], tmp[j] = tmp[j], tmp[i]
+	}
+	return tmp
+}
+
+func decToBase62(symbol []string, n int) string {
 	var url string
 	for int(n/62) > 0 {
-		url += string(symbol[n%62])
+		url += symbol[n%62]
 		n = int(n / 62)
 	}
-	url += string(symbol[n])
+	url += symbol[n]
 	return reverse(url)
 }
 
@@ -51,7 +65,12 @@ func main() {
 	r.HandleFunc("/{id:[a-zA-Z0-9]+}", info).Methods("POST")
 	r.HandleFunc("/{id:[a-zA-Z0-9]+}", redirect).Methods("GET")
 
-	fmt.Println(dec_to_base62("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789", 3843))
+	urlSymbols := "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+	rand.Seed(time.Now().UnixNano())
+	t := shuffle(urlSymbols)
+	fmt.Println(decToBase62(t, 0))
+
+	fmt.Println(t)
 
 	http.Handle("/", r)
 	http.ListenAndServe(":"+"8000", nil)
