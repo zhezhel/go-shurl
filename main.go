@@ -12,11 +12,10 @@ import (
 func main() {
 
 	app := cli.NewApp()
+	app.Name = "go-shurl"
+	app.Usage = "Service for shortening URLs"
+	app.Version = "0.7"
 	app.Flags = []cli.Flag{
-		cli.StringFlag{
-			Name:   "s,storage",
-			EnvVar: "STORAGE_URL",
-		},
 		cli.StringFlag{
 			Name:   "d,database",
 			EnvVar: "DATABASE_URL",

@@ -29,9 +29,13 @@ func NewDB(urlString string) (*gorm.DB, error) {
 		panic("DB url not provided")
 	}
 
+	if URL.Scheme == "sqlite3" {
+		urlString = URL.Hostname() + URL.Path
+	}
+
 	fmt.Println("connecting to", URL.Scheme)
-	db, err := gorm.Open(URL.Scheme, URL.Hostname()+URL.Path)
-	db.LogMode(true)
+	db, err := gorm.Open(URL.Scheme, urlString)
+	// db.LogMode(true)
 
 	db.AutoMigrate(&model.Url{})
 	return db, err

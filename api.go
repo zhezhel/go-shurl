@@ -1,7 +1,7 @@
 package main
 
 import (
-	"fmt"
+	"encoding/json"
 	"io/ioutil"
 	"math"
 	"math/rand"
@@ -68,14 +68,13 @@ func base62ToDec(symbol map[string]int, url string) int {
 	return int(num)
 }
 
-func getUrlFromDb(db *gorm.DB, shortUrl string) (string, error) {
-	fmt.Println(shortUrl)
+func getUrlFromDb(db *gorm.DB, shortUrl string) (model.Url, error) {
 	url := model.Url{}
 	err := db.Where("short_url = ?", shortUrl).First(&url).Error
 	if err == gorm.ErrRecordNotFound {
-		return "", err
+		return model.Url{}, err
 	}
-	return url.LongUrl, nil
+	return url, nil
 }
 
 func createUrlInDb(db *gorm.DB, LongUrl string, id int) (string, error) {
@@ -97,38 +96,46 @@ func createUrlInDb(db *gorm.DB, LongUrl string, id int) (string, error) {
 func redirect(db *gorm.DB) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		shortUrl := mux.Vars(r)["shortUrl"]
-		longUrl, err := getUrlFromDb(db, shortUrl)
+		url, err := getUrlFromDb(db, shortUrl)
 		if err != nil {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusNotFound)
 			return
 		}
-		http.Redirect(w, r, longUrl, http.StatusMovedPermanently)
+
+		http.Redirect(w, r, url.LongUrl, http.StatusMovedPermanently)
+		url.Redirections = url.Redirections + 1
+		db.Save(&url)
+
 	}
 }
 
 func create(db *gorm.DB, id int) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
-		data, _ := ioutil.ReadAll(r.Body)
-		shortUrl, err := createUrlInDb(db, string(data), id)
+		data := r.FormValue("url")
+		if len(data) == 0 {
+			http.Redirect(w, r, "/", http.StatusMovedPermanently)
+			return
+		}
+		shortUrl, err := createUrlInDb(db, data, id)
 		if err != nil {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
 		id = id + 1
-		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("{\"short_url\": \"" + shortUrl + "\" }"))
+		w.Header().Set("Content-Type", "application/json")
+		url, _ := json.Marshal(&shortUrl)
+		w.Write(url)
+		// http.Redirect(w, r, "/info/"+shortUrl, http.StatusMovedPermanently)
 	}
 }
 
-// TODO: Rewrite with using json
 func info(db *gorm.DB) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
-		fmt.Println("info")
 		vars := mux.Vars(r)
 		shortUrl := vars["shortUrl"]
-		longUrl, err := getUrlFromDb(db, shortUrl)
+		url, err := getUrlFromDb(db, shortUrl)
 		if err != nil {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusNotFound)
@@ -136,13 +143,18 @@ func info(db *gorm.DB) func(w http.ResponseWriter, r *http.Request) {
 		}
 
 		w.Header().Set("Content-Type", "application/json")
-		w.Write([]byte(longUrl))
+		data, _ := json.Marshal(&url)
+		w.Write(data)
 
 	}
 }
 
 func view(w http.ResponseWriter, r *http.Request) {
-	fmt.Println("view")
+
+	data, _ := ioutil.ReadFile("view/main.html")
+	w.WriteHeader(http.StatusOK)
+	w.Write(data)
+
 }
 
 func getRouter(db *gorm.DB) *mux.Router {
@@ -159,6 +171,7 @@ func getRouter(db *gorm.DB) *mux.Router {
 	r.HandleFunc("/", view).Methods("GET")
 	r.HandleFunc("/", create(db, id)).Methods("POST")
 	r.HandleFunc("/{shortUrl:[a-zA-Z0-9]+}", info(db)).Methods("POST")
+	r.HandleFunc("/info/{shortUrl:[a-zA-Z0-9]+}", info(db)).Methods("GET")
 	r.HandleFunc("/{shortUrl:[a-zA-Z0-9]+}", redirect(db)).Methods("GET")
 	r.PathPrefix("/static/").Handler(http.StripPrefix("/static/", http.FileServer(http.Dir("static"))))
 
