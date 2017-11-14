@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"math"
 	"math/rand"
@@ -77,7 +78,7 @@ func getUrlFromDb(db *gorm.DB, shortUrl string) (model.Url, error) {
 	return url, nil
 }
 
-func createUrlInDb(db *gorm.DB, LongUrl string, id int) (string, error) {
+func createUrlInDb(db *gorm.DB, LongUrl string, id int) (model.Url, error) {
 
 	url := model.Url{
 		ShortUrl:     decToBase62(intMap, id),
@@ -87,9 +88,9 @@ func createUrlInDb(db *gorm.DB, LongUrl string, id int) (string, error) {
 
 	err := db.Save(&url).Error
 	if err != nil {
-		return "", err
+		return model.Url{}, err
 	}
-	return url.ShortUrl, nil
+	return url, nil
 
 }
 
@@ -112,12 +113,16 @@ func redirect(db *gorm.DB) func(w http.ResponseWriter, r *http.Request) {
 
 func create(db *gorm.DB, id int) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
-		data := r.FormValue("url")
+		data, _ := ioutil.ReadAll(r.Body)
+		// data := r.FormValue("url")
+
+		fmt.Println(string(data))
+
 		if len(data) == 0 {
 			http.Redirect(w, r, "/", http.StatusMovedPermanently)
 			return
 		}
-		shortUrl, err := createUrlInDb(db, data, id)
+		shortUrl, err := createUrlInDb(db, string(data), id)
 		if err != nil {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusInternalServerError)
@@ -126,6 +131,7 @@ func create(db *gorm.DB, id int) func(w http.ResponseWriter, r *http.Request) {
 		id = id + 1
 		w.Header().Set("Content-Type", "application/json")
 		url, _ := json.Marshal(&shortUrl)
+		fmt.Println(string(url))
 		w.Write(url)
 		// http.Redirect(w, r, "/info/"+shortUrl, http.StatusMovedPermanently)
 	}
