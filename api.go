@@ -69,20 +69,20 @@ func base62ToDec(symbol map[string]int, url string) int {
 	return int(num)
 }
 
-func getUrlFromDb(db *gorm.DB, shortUrl string) (model.Url, error) {
+func getURLFromDB(db *gorm.DB, shortURL string) (model.Url, error) {
 	url := model.Url{}
-	err := db.Where("short_url = ?", shortUrl).First(&url).Error
+	err := db.Where("short_url = ?", shortURL).First(&url).Error
 	if err == gorm.ErrRecordNotFound {
 		return model.Url{}, err
 	}
 	return url, nil
 }
 
-func createUrlInDb(db *gorm.DB, LongUrl string, id int) (model.Url, error) {
+func createURLInDB(db *gorm.DB, LongURL string, id int) (model.Url, error) {
 
 	url := model.Url{
 		ShortUrl:     decToBase62(intMap, id),
-		LongUrl:      string(LongUrl),
+		LongUrl:      string(LongURL),
 		Redirections: 0,
 	}
 
@@ -96,8 +96,8 @@ func createUrlInDb(db *gorm.DB, LongUrl string, id int) (model.Url, error) {
 
 func redirect(db *gorm.DB) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
-		shortUrl := mux.Vars(r)["shortUrl"]
-		url, err := getUrlFromDb(db, shortUrl)
+		shortURL := mux.Vars(r)["shortUrl"]
+		url, err := getURLFromDB(db, shortURL)
 		if err != nil {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusNotFound)
@@ -122,7 +122,7 @@ func create(db *gorm.DB, id int) func(w http.ResponseWriter, r *http.Request) {
 			http.Redirect(w, r, "/", http.StatusMovedPermanently)
 			return
 		}
-		shortUrl, err := createUrlInDb(db, string(data), id)
+		shortURL, err := createURLInDB(db, string(data), id)
 		if err != nil {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusInternalServerError)
@@ -130,7 +130,7 @@ func create(db *gorm.DB, id int) func(w http.ResponseWriter, r *http.Request) {
 		}
 		id = id + 1
 		w.Header().Set("Content-Type", "application/json")
-		url, _ := json.Marshal(&shortUrl)
+		url, _ := json.Marshal(&shortURL)
 		fmt.Println(string(url))
 		w.Write(url)
 		// http.Redirect(w, r, "/info/"+shortUrl, http.StatusMovedPermanently)
@@ -140,8 +140,8 @@ func create(db *gorm.DB, id int) func(w http.ResponseWriter, r *http.Request) {
 func info(db *gorm.DB) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		vars := mux.Vars(r)
-		shortUrl := vars["shortUrl"]
-		url, err := getUrlFromDb(db, shortUrl)
+		shortURL := vars["shortUrl"]
+		url, err := getURLFromDB(db, shortURL)
 		if err != nil {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusNotFound)
