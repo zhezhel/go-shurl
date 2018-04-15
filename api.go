@@ -9,7 +9,7 @@ import (
 	"net/http"
 	"time"
 
-	"./model"
+	"github.com/zhezhel/go-shurl/model"
 
 	"github.com/gorilla/mux"
 	"github.com/jinzhu/gorm"
